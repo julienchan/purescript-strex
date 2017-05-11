@@ -14,25 +14,49 @@ exports.bufferCompare = function (buf1, buf2) {
 exports.bufferSlice = function (start, end, buffer) {
   return function () {
     return buffer.slice(start, end)
-  }
+  };
+}
+
+exports.bufferReverse = function (src, target, len) {
+  return function () {
+    for (var i = 0, j = len - 1; i <= j; ++i, --j) {
+      target[i] = src[j]
+      target[j] = src[i]
+    }
+  };
 }
 
 exports.setAtOffset = function (ofs, v, buffer) {
   return function () {
     buffer[ofs] = v;
-  }
+  };
 }
 
 exports.intersperse = function (srcStart, src, targStart, target, n, c) {
   return function () {
-    if (n > 0) {
-      for (var i = 0; i < n - 1; i++) {
-        target[targStart]     = src[srcStart + i];
-        target[targStart + i] = c;
-        targStart += 2;
-      }
+    var stop = n - 1, ts = targStart, srcs = srcStart
+    for (var i = 0; i < stop; i++) {
+      target[ts]     = src[srcs + i];
+      target[ts + 1] = c;
+      ts += 2;
     }
   };
 };
+
+exports.foldl = function (f, z, ofset, len, buf) {
+  var r = z;
+  for (var i = ofset; i < len; ++i) {
+    r = f(r)(buf[i]);
+  }
+  return r;
+}
+
+exports.foldr = function (f, z, ofset, len, buf) {
+  var r = z;
+  for (var i = len - 1; i >= len; --i) {
+    r = f(buf[i])(r)
+  }
+  return r
+}
 
 exports.emptyBuf = Buffer.from([])
