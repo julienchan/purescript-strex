@@ -34,8 +34,8 @@ exports.setAtOffset = function (ofs, v, buffer) {
 
 exports.intersperse = function (srcStart, src, targStart, target, n, c) {
   return function () {
-    var stop = n - 1, ts = targStart, srcs = srcStart
-    for (var i = 0; i < stop; i++) {
+    var ts = targStart, srcs = srcStart;
+    for (var i = 0; i < n; i++) {
       target[ts]     = src[srcs + i];
       target[ts + 1] = c;
       ts += 2;
@@ -49,7 +49,7 @@ exports.foldl = function (f, z, ofset, len, buf) {
     r = f(r)(buf[i]);
   }
   return r;
-}
+};
 
 exports.foldr = function (f, z, ofset, len, buf) {
   var r = z;
@@ -57,6 +57,16 @@ exports.foldr = function (f, z, ofset, len, buf) {
     r = f(buf[i])(r)
   }
   return r
+};
+
+exports.indexOfImpl = function (nothing, just, octet, offset, buffer) {
+  var ix = buffer.indexOf(octet, offset)
+  return ix === -1 ? nothing : just(ix);
+}
+
+exports.lastIndexOfImpl = function (nothing, just, octet, offset, buffer) {
+  var ix = buffer.lastIndexOf(octet, offset)
+  return ix === -1 ? nothing : just(ix)
 }
 
 exports.emptyBuf = Buffer.from([])

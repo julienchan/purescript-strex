@@ -3,7 +3,7 @@ module Test.Data.ByteString where
 import Prelude
 
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.Eff.Random (RANDOM)
@@ -88,18 +88,21 @@ mainBS = do
     it "tail operation correctly extract the elements after the head" do
       let bs = B.pack [0x74, 0x72, 0x64, 0x67, 0x55]
           xs = unsafePartial $ fromJust $ B.tail bs
+          ys = unsafePartial $ fromJust $ B.tail xs
       bxs <- liftEff $ Buffer.fromArray [0x72, 0x64, 0x67, 0x55]
-      liftEff $ log $ show xs
+      bys <- liftEff $ Buffer.fromArray [0x64, 0x67, 0x55]
       xs `shouldEqual` (B.pack [0x72, 0x64, 0x67, 0x55])
+      ys `shouldEqual` (B.pack [0x64, 0x67, 0x55])
       BI.bufferEqual (B.toBuffer xs) bxs `shouldEqual` true
+      BI.bufferEqual (B.toBuffer ys) bys `shouldEqual` true
       B.index xs 0 `shouldEqual` Just 0x72
+      B.index ys 0 `shouldEqual` Just 0x64
       B.length xs `shouldEqual` 4
 
     it "init correctly return all the elements except the last one" do
       let bs = B.pack [0x74, 0x72, 0x64, 0x67, 0x55]
           xs = unsafePartial $ fromJust $ B.init bs
       bxs <- liftEff $ Buffer.fromArray [0x74, 0x72, 0x64, 0x67]
-      liftEff $ log $ show xs
       xs `shouldEqual` (B.pack [0x74, 0x72, 0x64, 0x67])
       BI.bufferEqual (B.toBuffer xs) bxs `shouldEqual` true
       B.last xs `shouldEqual` Just 0x67
@@ -109,8 +112,12 @@ mainBS = do
       let bs = B.pack [0x74, 0x72, 0x64, 0x67, 0x55]
           xs = unsafePartial $ fromJust $ B.tail bs
           ys = unsafePartial $ fromJust $ B.init xs
-      liftEff $ log $ show ys
       ys `shouldEqual` (B.pack [0x72, 0x64, 0x67])
+      (xs <> ys) `shouldEqual` B.pack [0x72, 0x64, 0x67, 0x55, 0x72, 0x64, 0x67]
+
+    it "snoc Append a byte to the end of a 'ByteString'" do
+      let bs = B.pack [0x74, 0x72, 0x64, 0x67, 0x55]
+      B.snoc bs 0x2c `shouldEqual` B.pack [0x74, 0x72, 0x64, 0x67, 0x55, 0x2c]
 
     it "concat, init, length" do
       let bs1  = B.pack [0x74, 0xc3, 0xa9, 0x73, 0x74]
@@ -124,6 +131,11 @@ mainBS = do
           (len2 + 1) `shouldEqual` len
           B.unpack init `shouldEqual` [0x74, 0xc3, 0xa9, 0x73]
           B.unpack (init <> bs2) `shouldEqual` [0x74, 0xc3, 0xa9, 0x73, 0x98, 0x77]
+
+    it "Elem index" do
+      let bs = B.pack [0x74, 0xc3, 0xa9, 0x73, 0x74]
+          xs = unsafePartial $ fromJust $ B.tail bs
+      B.elemIndex 0xa9 xs `shouldEqual` Just 1
 
     it "property unpack, pack" do
       liftEff do

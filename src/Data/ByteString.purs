@@ -57,7 +57,7 @@ length (B.ByteString _ _ le) = le
 cons :: B.Octet -> B.ByteString -> B.ByteString
 cons c (B.ByteString buf ofs len) = B.unsafeCreate (len + 1) \buf' -> do
   _ <- Buffer.write Buffer.UInt8 c 0 buf'
-  _ <- Fn.runFn5 B.copyBuffer ofs len buf 1 buf'
+  _ <- Fn.runFn5 B.copyBuffer ofs (ofs + len) buf 1 buf'
   pure unit
 
 -- | Append a byte to the end of a 'ByteString'
@@ -65,8 +65,8 @@ cons c (B.ByteString buf ofs len) = B.unsafeCreate (len + 1) \buf' -> do
 -- | Running time: `O(n)`
 snoc :: B.ByteString -> B.Octet -> B.ByteString
 snoc (B.ByteString buf ofs len) c = B.unsafeCreate (len + 1) \buf' -> do
-  _ <- Fn.runFn5 B.copyBuffer ofs len buf 0 buf'
-  _ <- Buffer.write Buffer.UInt8 c 0 buf'
+  _ <- Fn.runFn5 B.copyBuffer ofs (ofs + len) buf 0 buf'
+  _ <- Buffer.write Buffer.UInt8 c len buf'
   pure unit
 
 -- | Extract the first element of a ByteString, if the ByteString is empty then
@@ -85,12 +85,6 @@ tail :: B.ByteString -> Maybe B.ByteString
 tail (B.ByteString x s l)
   | l <= 0    = Nothing
   | otherwise = Just $ B.ByteString x (s + 1) (l - 1)
-
-index :: B.ByteString -> Int -> Maybe B.Octet
-index (B.ByteString x s l) n
-  | n < 0      = Nothing
-  | n >= l     = Nothing
-  | otherwise  = unsafePerformEff $ Buffer.getAtOffset (n + s) x
 
 -- | Extract the head and tail of a ByteString, returning Nothing if it is empty.
 -- |
@@ -147,6 +141,33 @@ all = alaF Conj foldMap
 
 any :: forall b. HeytingAlgebra b => (B.Octet -> b) -> B.ByteString -> b
 any = alaF Disj foldMap
+
+-- -----------------------------------------------------------------------------
+-- Indexing ByteStrings --------------------------------------------------------
+--------------------------------------------------------------------------------
+
+-- | 'ByteString' index (subscript) operator, 0 indexed.
+-- |
+-- | Running time: `O(1)`
+index :: B.ByteString -> Int -> Maybe B.Octet
+index (B.ByteString x s l) n
+  | n < 0      = Nothing
+  | n >= l     = Nothing
+  | otherwise  = unsafePerformEff $ Buffer.getAtOffset (n + s) x
+
+-- | Returns the index of the first element in the given 'ByteString' which is
+-- | equal to the query element, or 'Nothing' if there is no such element.
+elemIndex :: B.Octet -> B.ByteString -> Maybe Int
+elemIndex c (B.ByteString x s _) = minOff <$> Fn.runFn5 B.indexOfImpl Nothing Just c s x
+  where
+    minOff y = y - s
+
+-- | Returns the index of the last element in the given 'ByteString' which is
+-- | equal to the query element, or 'Nothing' if there is no such element.
+elemIndexEnd :: B.Octet -> B.ByteString -> Maybe Int
+elemIndexEnd c (B.ByteString x s _) = minOff <$> Fn.runFn5 B.lastIndexOfImpl Nothing Just c s x
+  where
+    minOff y = y - s
 
 -- -----------------------------------------------------------------------------
 -- Substrings ------------------------------------------------------------------

@@ -3,7 +3,7 @@ module Data.ByteString.Internal
   , unsafeCreate, unsafeFromArray, unsafeToBuffer, unsafeBufferSlice
   , create, createUptoN, createAndTrim, fromArray, fromString, toBuffer
   , setAtOffset, bufferSlice, bufferCompare, bufferEqual, copyBuffer, emptyBuf
-  , bufferReverse, intersperse, foldl, foldr
+  , bufferReverse, intersperse, foldl, foldr, indexOfImpl, lastIndexOfImpl
   , _isSpace, _isSpaceChar
   ) where
 
@@ -13,6 +13,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 
 import Data.Function.Uncurried as Fn
+import Data.Maybe (Maybe)
 import Data.Monoid (class Monoid)
 
 import Node.Buffer (BUFFER, Buffer)
@@ -70,11 +71,10 @@ appendBS a                  (ByteString _ _ 0) = a
 appendBS (ByteString b1 of1 len1) (ByteString b2 of2 len2)
   | of1 + len1 == of2 && bufferEqual b1 b2 =
       ByteString b1 of1 (len1 + len2)
-  | otherwise =
-      unsafeCreate (len1+len2) \buf -> do
-        _ <- Fn.runFn5 copyBuffer of1 (of1 + len1) b1 0 buf
-        _ <- Fn.runFn5 copyBuffer of2 (of2 + len2) b2 (len1 - of1) buf
-        pure unit
+  | otherwise = unsafeCreate (len1+len2) \buf -> do
+      _ <- Fn.runFn5 copyBuffer of1 (of1 + len1) b1 0 buf
+      _ <- Fn.runFn5 copyBuffer of2 (of2 + len2) b2 len1 buf
+      pure unit
 
 unsafeCreate :: forall e. Size -> (Buffer -> EffBuf e Unit) -> ByteString
 unsafeCreate s f = unsafePerformEff $ create s f
@@ -109,8 +109,8 @@ createAndTrim size f = do
     then pure $ ByteString buf 0 size
     else
       create len \buf' -> do
-         _ <- Fn.runFn5 copyBuffer 0 len buf 0 buf'
-         pure unit
+        _ <- Fn.runFn5 copyBuffer 0 len buf 0 buf'
+        pure unit
 
 toBuffer :: forall e. ByteString -> EffBuf e Buffer
 toBuffer (ByteString src ofs len) = Fn.runFn3 bufferSlice ofs (len + ofs) src
@@ -167,3 +167,7 @@ foreign import bufferSlice :: forall e. Fn.Fn3 Int Int Buffer (EffBuf e Buffer)
 foreign import copyBuffer :: forall e. Fn.Fn5 Offset Offset Buffer Offset Buffer (EffBuf e Int)
 
 foreign import emptyBuf :: Buffer
+
+foreign import indexOfImpl :: Fn.Fn5 (forall x. Maybe x) (forall x. x -> Maybe x) Octet Offset Buffer (Maybe Int)
+
+foreign import lastIndexOfImpl :: Fn.Fn5 (forall x. Maybe x) (forall x. x -> Maybe x) Octet Offset Buffer (Maybe Int)
