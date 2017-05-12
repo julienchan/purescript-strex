@@ -2,8 +2,8 @@ module Data.ByteString.Internal
   ( ByteString(..), Octet, Offset, Size, EffBuf
   , unsafeCreate, unsafeFromArray, unsafeToBuffer, unsafeBufferSlice
   , create, createUptoN, createAndTrim, fromArray, fromString, toBuffer
-  , setAtOffset, bufferSlice, bufferCompare, copyBuffer, emptyBuf, bufferReverse
-  , intersperse, foldl, foldr
+  , setAtOffset, bufferSlice, bufferCompare, bufferEqual, copyBuffer, emptyBuf
+  , bufferReverse, intersperse, foldl, foldr
   , _isSpace, _isSpaceChar
   ) where
 
@@ -57,11 +57,11 @@ eqBS a@(ByteString bs off len) b@(ByteString bs' off' len')
   | otherwise                  = EQ == compareBS a b
 
 compareBS :: ByteString -> ByteString -> Ordering
-compareBS (ByteString _ _ 0) (ByteString _ _ 0)               = EQ
-compareBS (ByteString bs1 of1 len1) (ByteString bs2 of2 len2) =
+compareBS (ByteString _ _ 0) (ByteString _ _ 0) = EQ
+compareBS a b =
   compare 0 $ unsafePerformEff do
-    bs1' <- Fn.runFn3 bufferSlice of1 len1 bs1
-    bs2' <- Fn.runFn3 bufferSlice of2 len2 bs2
+    bs1' <- toBuffer a
+    bs2' <- toBuffer b
     Fn.runFn2 bufferCompare bs1' bs2'
 
 appendBS :: ByteString -> ByteString -> ByteString
@@ -72,8 +72,8 @@ appendBS (ByteString b1 of1 len1) (ByteString b2 of2 len2)
       ByteString b1 of1 (len1 + len2)
   | otherwise =
       unsafeCreate (len1+len2) \buf -> do
-        _ <- Fn.runFn5 copyBuffer of1 len1 b1 0 buf
-        _ <- Fn.runFn5 copyBuffer of2 len2 b2 (len1 - of1) buf
+        _ <- Fn.runFn5 copyBuffer of1 (of1 + len1) b1 0 buf
+        _ <- Fn.runFn5 copyBuffer of2 (of2 + len2) b2 (len1 - of1) buf
         pure unit
 
 unsafeCreate :: forall e. Size -> (Buffer -> EffBuf e Unit) -> ByteString
@@ -113,7 +113,7 @@ createAndTrim size f = do
          pure unit
 
 toBuffer :: forall e. ByteString -> EffBuf e Buffer
-toBuffer (ByteString src ofs len) = Fn.runFn3 bufferSlice ofs len src
+toBuffer (ByteString src ofs len) = Fn.runFn3 bufferSlice ofs (len + ofs) src
 
 fromArray :: forall e. Array Octet -> EffBuf e ByteString
 fromArray xs = do
